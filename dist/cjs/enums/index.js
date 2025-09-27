@@ -14,6 +14,7 @@ var ErrorCategoryEnum;
     ErrorCategoryEnum["CONFIGURATION"] = "configuration";
     ErrorCategoryEnum["INTERNAL"] = "internal";
     ErrorCategoryEnum["BAD_CONFIG"] = "bad_config";
+    ErrorCategoryEnum["TRANSFORMATION"] = "transformation";
 })(ErrorCategoryEnum || (exports.ErrorCategoryEnum = ErrorCategoryEnum = {}));
 var ErrorLayerEnum;
 (function (ErrorLayerEnum) {
@@ -37,6 +38,7 @@ var ErrorConstructorEnum;
     ErrorConstructorEnum["AuthorizationError"] = "AuthorizationError";
     ErrorConstructorEnum["AuthenticationError"] = "AuthenticationError";
     ErrorConstructorEnum["BadConfigError"] = "BadConfigError";
+    ErrorConstructorEnum["TransformationError"] = "TransformationError";
 })(ErrorConstructorEnum || (exports.ErrorConstructorEnum = ErrorConstructorEnum = {}));
 var NetworkErrorCodesEnum;
 (function (NetworkErrorCodesEnum) {

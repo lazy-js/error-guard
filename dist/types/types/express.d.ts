@@ -1,5 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { ErrorContextBase } from './errors';
+interface Logger {
+    error(...args: any[]): void;
+    warn(...args: any[]): void;
+}
 /**
  * Express-specific error context that extends the base error context
  * with Express request metadata
@@ -63,10 +67,9 @@ export interface ExpressErrorHandlerOptions {
      */
     enableLogging?: boolean;
     /**
-     * Custom error transformation function
-     * If provided, will be called before default error handling
+     * Custom logger injection
      */
-    customErrorTransform?: (err: Error, req: Request) => Error;
+    logger?: Logger;
 }
 /**
  * Express request metadata extraction utility
@@ -85,4 +88,5 @@ export interface RequestMetadata {
     baseUrl: string;
     body?: Record<string, any>;
 }
+export {};
 //# sourceMappingURL=express.d.ts.map

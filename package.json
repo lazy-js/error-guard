@@ -1,7 +1,7 @@
 {
-    "name": "@lazy-js/error-handler",
+    "name": "@lazy-js/error-guard",
     "version": "1.0.0",
-    "description": "",
+    "description": "A comprehensive, production-ready error handling library for Node.js applications with TypeScript support. Features advanced error transformation, framework integration (Express.js & NestJS), structured error management, and re-exports class-transformer and class-validator for convenience.",
     "main": "./dist/cjs/index.js",
     "module": "./dist/esm/index.js",
     "types": "./dist/types/index.d.ts",
@@ -13,7 +13,10 @@
         }
     },
     "files": [
-        "dist"
+        "dist",
+        "README.md",
+        "LICENSE",
+        "docs"
     ],
     "scripts": {
         "dev": "npm run dev:esm && npm run dev:cjs",
@@ -24,11 +27,44 @@
         "build": "npm run build:esm && npm run build:cjs",
         "build:esm": "tsc --project tsconfig.json",
         "build:cjs": "tsc --project tsconfig.cjs.json",
-        "test": "tsc --project tsconfig.test.json && vitest"
+        "test": "tsc --project tsconfig.test.json && vitest",
+        "test:coverage": "vitest --coverage",
+        "test:watch": "vitest --watch"
     },
-    "keywords": [],
-    "author": "",
+    "keywords": [
+        "error-handling",
+        "typescript",
+        "nodejs",
+        "express",
+        "nestjs",
+        "error-transformation",
+        "error-management",
+        "middleware",
+        "decorators",
+        "validation",
+        "logging",
+        "trace-id",
+        "error-context",
+        "production-ready"
+    ],
+    "author": {
+        "name": "Lazy JS Team",
+        "email": "team@lazyjs.dev",
+        "url": "https://github.com/lazy-js"
+    },
     "license": "ISC",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/lazy-js/error-guard.git"
+    },
+    "homepage": "https://github.com/lazy-js/error-guard#readme",
+    "bugs": {
+        "url": "https://github.com/lazy-js/error-guard/issues"
+    },
+    "engines": {
+        "node": ">=16.0.0",
+        "npm": ">=8.0.0"
+    },
     "type": "commonjs",
     "devDependencies": {
         "@nestjs/common": "^10.3.0",

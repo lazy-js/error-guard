@@ -1,6 +1,6 @@
-import { ErrorCategoryEnum, ErrorLayerEnum, NetworkErrorCodesEnum, DatabaseErrorCodesEnum } from '../enums';
+import { ErrorCategoryEnum, ErrorLayerEnum, NetworkErrorCodesEnum, DatabaseErrorCodesEnum, ErrorLayerType } from '../enums';
 export type ErrorContextBase = {
-    layer?: ErrorLayerEnum;
+    layer?: ErrorLayerEnum | ErrorLayerType;
     className?: string;
     methodName?: string;
     transformerModuleName?: string;
@@ -20,7 +20,7 @@ export interface IError {
 }
 export type ErrorOptions = Omit<IError, 'category' | 'isOperational' | 'timestamp'>;
 export type ValueType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null' | 'undefined';
-export type ValidationConstraint = 'required' | 'min' | 'max' | 'pattern' | 'type' | 'enum' | 'custom' | 'unique';
+export type ValidationConstraint = 'required' | 'min' | 'max' | 'pattern' | 'type' | 'enum' | 'custom' | 'unique' | string;
 export interface ValidationErrorContext extends ErrorContextBase {
     providedValueType?: ValueType;
     providedValue?: any;
@@ -29,10 +29,6 @@ export interface ValidationErrorContext extends ErrorContextBase {
     path?: string;
     constraint?: ValidationConstraint;
 }
-export interface ValidationErrorOptions extends ErrorOptions {
-    context?: ValidationErrorContext;
-}
-export type InternalErrorOptions = ErrorOptions;
 export type NetworkErrorOptions = ErrorOptions & {
     code: NetworkErrorCodesEnum;
 };
@@ -42,9 +38,14 @@ export type DatabaseErrorOptions = ErrorOptions & {
 export type ExternalServiceErrorOptions = ErrorOptions & {
     externalService: string;
 };
-export type ConflictErrorOptions = ErrorOptions;
-export type NotFoundErrorOptions = ErrorOptions;
-export type AuthorizationErrorOptions = ErrorOptions;
-export type AuthenticationErrorOptions = ErrorOptions;
-export type BadConfigErrorOptions = ErrorOptions;
+export type ValidationErrorOptions<T extends string = string> = (ErrorOptions & {
+    context?: ValidationErrorContext;
+}) | T;
+export type InternalErrorOptions<T extends string = string> = ErrorOptions | T;
+export type ConflictErrorOptions<T extends string = string> = ErrorOptions | T;
+export type NotFoundErrorOptions<T extends string = string> = ErrorOptions | T;
+export type AuthorizationErrorOptions<T extends string = string> = ErrorOptions | T;
+export type AuthenticationErrorOptions<T extends string = string> = ErrorOptions | T;
+export type BadConfigErrorOptions<T extends string = string> = ErrorOptions | T;
+export type TransformationErrorOptions<T extends string = string> = ErrorOptions | T;
 //# sourceMappingURL=errors.d.ts.map

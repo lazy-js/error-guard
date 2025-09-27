@@ -17,4 +17,5 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./errors"), exports);
 __exportStar(require("./transformer"), exports);
 __exportStar(require("./express"), exports);
+__exportStar(require("./nestjs"), exports);
 //# sourceMappingURL=index.js.map

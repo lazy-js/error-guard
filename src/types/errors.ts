@@ -50,11 +50,6 @@ export interface ValidationErrorContext extends ErrorContextBase {
     constraint?: ValidationConstraint;
 }
 
-export interface ValidationErrorOptions extends ErrorOptions {
-    context?: ValidationErrorContext;
-}
-
-export type InternalErrorOptions = ErrorOptions;
 export type NetworkErrorOptions = ErrorOptions & {
     code: NetworkErrorCodesEnum;
 };
@@ -64,9 +59,16 @@ export type DatabaseErrorOptions = ErrorOptions & {
 export type ExternalServiceErrorOptions = ErrorOptions & {
     externalService: string;
 };
-export type ConflictErrorOptions = ErrorOptions;
-export type NotFoundErrorOptions = ErrorOptions;
-export type AuthorizationErrorOptions = ErrorOptions;
-export type AuthenticationErrorOptions = ErrorOptions;
-export type BadConfigErrorOptions = ErrorOptions;
-export type TransformationErrorOptions = ErrorOptions;
+
+export type ValidationErrorOptions<T extends string = string> =
+    | (ErrorOptions & {
+          context?: ValidationErrorContext;
+      })
+    | T;
+export type InternalErrorOptions<T extends string = string> = ErrorOptions | T;
+export type ConflictErrorOptions<T extends string = string> = ErrorOptions | T;
+export type NotFoundErrorOptions<T extends string = string> = ErrorOptions | T;
+export type AuthorizationErrorOptions<T extends string = string> = ErrorOptions | T;
+export type AuthenticationErrorOptions<T extends string = string> = ErrorOptions | T;
+export type BadConfigErrorOptions<T extends string = string> = ErrorOptions | T;
+export type TransformationErrorOptions<T extends string = string> = ErrorOptions | T;

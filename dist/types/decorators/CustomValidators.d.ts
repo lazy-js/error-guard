@@ -1,0 +1,209 @@
+import 'reflect-metadata';
+import { ValidationArguments, ValidationOptions, ValidatorConstraintInterface } from 'class-validator';
+/**
+ * Custom validation decorator that validates if a date property is after another date property.
+ *
+ * This decorator compares two date properties in the same object, ensuring that the
+ * decorated property's date value is chronologically after the specified reference property.
+ * Both properties must contain valid date values for validation to pass.
+ *
+ * @param property - The name of the property to compare against (reference date)
+ * @param validationOptions - Optional validation options from class-validator
+ * @returns A property decorator function
+ *
+ * @example
+ * ```typescript
+ * class EventDto {
+ *   @IsDateString()
+ *   startDate: string;
+ *
+ *   @IsDateString()
+ *   @IsAfterDate('startDate', { message: 'End date must be after start date' })
+ *   endDate: string;
+ * }
+ *
+ * // Usage
+ * const event = new EventDto();
+ * event.startDate = '2024-01-01T10:00:00Z';
+ * event.endDate = '2024-01-01T12:00:00Z'; // Valid: after startDate
+ * ```
+ *
+ * @example
+ * ```typescript
+ * class BookingDto {
+ *   @IsDateString()
+ *   checkIn: string;
+ *
+ *   @IsDateString()
+ *   @IsAfterDate('checkIn', {
+ *     message: 'Check-out date must be after check-in date',
+ *     each: true
+ *   })
+ *   checkOut: string;
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * class ProjectDto {
+ *   @IsDate()
+ *   startDate: Date;
+ *
+ *   @IsDate()
+ *   @IsAfterDate('startDate', {
+ *     message: 'Deadline must be after project start date'
+ *   })
+ *   deadline: Date;
+ * }
+ * ```
+ *
+ * @returns {boolean} true if the decorated property's date is after the reference property's date
+ * @returns {boolean} false if either date is null, undefined, or invalid
+ *
+ * @since 1.0.0
+ */
+export declare function IsAfterDate(property: string, validationOptions?: ValidationOptions): (object: Object, propertyName: string) => void;
+/**
+ * Configuration interface for conditional enum validation.
+ *
+ * @interface ConditionalEnumConfig
+ * @property {string} property - The property name that determines which enum values are valid
+ * @property {Record<string | number, any> | Map<any, any>} enumMap - Mapping of condition values to valid enum values
+ * @property {Record<string | number, string> | Map<any, string>} [messageMap] - Custom error messages for each condition
+ * @property {boolean} [allowNull] - Whether null values are allowed (default: false)
+ * @property {boolean} [allowUndefined] - Whether undefined values are allowed (default: false)
+ */
+export interface ConditionalEnumConfig {
+    property: string;
+    enumMap: Record<string | number, any> | Map<any, any>;
+    messageMap?: Record<string | number, string> | Map<any, string>;
+    allowNull?: boolean;
+    allowUndefined?: boolean;
+}
+/**
+ * Validator constraint class for conditional enum validation.
+ *
+ * This constraint validates that a property's value is one of the allowed values
+ * based on the value of another property in the same object. It supports both
+ * object-based and Map-based enum mappings with custom error messages.
+ *
+ * @class ConditionalEnumConstraint
+ * @implements {ValidatorConstraintInterface}
+ *
+ * @example
+ * ```typescript
+ * // Using the constraint directly
+ * @Validate(ConditionalEnumConstraint, [{
+ *   property: 'type',
+ *   enumMap: {
+ *     'user': ['admin', 'user', 'guest'],
+ *     'system': ['internal', 'external']
+ *   },
+ *   messageMap: {
+ *     'user': 'User role must be admin, user, or guest',
+ *     'system': 'System type must be internal or external'
+ *   }
+ * }])
+ * role: string;
+ * ```
+ *
+ * @since 1.0.0
+ */
+export declare class ConditionalEnumConstraint implements ValidatorConstraintInterface {
+    validate(value: any, args: ValidationArguments): boolean;
+    defaultMessage(args: ValidationArguments): string;
+}
+/**
+ * Custom validation decorator for conditional enum validation.
+ *
+ * This decorator validates that a property's value is one of the allowed values
+ * based on the value of another property in the same object. It provides a more
+ * convenient API compared to using the constraint class directly.
+ *
+ * @param conditionProperty - The property name that determines which enum values are valid
+ * @param enumMap - Mapping of condition values to valid enum values (object or Map)
+ * @param validationOptions - Validation options including custom messages and null/undefined handling
+ * @param validationOptions.allowNull - Whether null values are allowed (default: false)
+ * @param validationOptions.allowUndefined - Whether undefined values are allowed (default: false)
+ * @param validationOptions.messageMap - Custom error messages for each condition
+ * @returns A property decorator function
+ *
+ * @example
+ * ```typescript
+ * enum UserType {
+ *   ADMIN = 'admin',
+ *   USER = 'user',
+ *   GUEST = 'guest'
+ * }
+ *
+ * enum SystemType {
+ *   INTERNAL = 'internal',
+ *   EXTERNAL = 'external'
+ * }
+ *
+ * class AccessDto {
+ *   @IsEnum(['user', 'system'])
+ *   type: string;
+ *
+ *   @IsConditionalEnum('type', {
+ *     'user': Object.values(UserType),
+ *     'system': Object.values(SystemType)
+ *   }, {
+ *     messageMap: {
+ *       'user': 'User access must be admin, user, or guest',
+ *       'system': 'System access must be internal or external'
+ *     }
+ *   })
+ *   accessLevel: string;
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * class OrderDto {
+ *   @IsEnum(['online', 'offline'])
+ *   orderType: string;
+ *
+ *   @IsConditionalEnum('orderType', new Map([
+ *     ['online', ['credit_card', 'paypal', 'stripe']],
+ *     ['offline', ['cash', 'check', 'bank_transfer']]
+ *   ]), {
+ *     allowNull: true,
+ *     messageMap: new Map([
+ *       ['online', 'Online orders must use credit card, PayPal, or Stripe'],
+ *       ['offline', 'Offline orders must use cash, check, or bank transfer']
+ *     ])
+ *   })
+ *   paymentMethod: string | null;
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * class NotificationDto {
+ *   @IsEnum(['email', 'sms', 'push'])
+ *   channel: string;
+ *
+ *   @IsConditionalEnum('channel', {
+ *     'email': ['immediate', 'daily', 'weekly'],
+ *     'sms': ['immediate'],
+ *     'push': ['immediate', 'scheduled']
+ *   }, {
+ *     allowUndefined: true,
+ *     message: 'Invalid frequency for the selected channel'
+ *   })
+ *   frequency?: string;
+ * }
+ * ```
+ *
+ * @returns {boolean} true if the value is valid for the given condition
+ * @returns {boolean} false if the value is invalid or condition not met
+ *
+ * @since 1.0.0
+ */
+export declare function IsConditionalEnum(conditionProperty: string, enumMap: Record<string | number, any> | Map<any, any>, validationOptions?: ValidationOptions & {
+    allowNull?: boolean;
+    allowUndefined?: boolean;
+    messageMap?: Record<string | number, string> | Map<any, string>;
+}): (object: Object, propertyName: string) => void;
+//# sourceMappingURL=CustomValidators.d.ts.map

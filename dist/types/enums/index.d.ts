@@ -9,7 +9,8 @@ export declare enum ErrorCategoryEnum {
     NETWORK = "network",
     CONFIGURATION = "configuration",
     INTERNAL = "internal",
-    BAD_CONFIG = "bad_config"
+    BAD_CONFIG = "bad_config",
+    TRANSFORMATION = "transformation"
 }
 export type ErrorCategoryType = keyof typeof ErrorCategoryEnum;
 export declare enum ErrorLayerEnum {
@@ -32,7 +33,8 @@ export declare enum ErrorConstructorEnum {
     NetworkError = "NetworkError",
     AuthorizationError = "AuthorizationError",
     AuthenticationError = "AuthenticationError",
-    BadConfigError = "BadConfigError"
+    BadConfigError = "BadConfigError",
+    TransformationError = "TransformationError"
 }
 export type ErrorConstructorType = keyof typeof ErrorConstructorEnum;
 export declare enum NetworkErrorCodesEnum {

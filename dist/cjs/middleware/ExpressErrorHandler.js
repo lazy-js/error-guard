@@ -3,16 +3,88 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.expressErrorHandler = exports.ExpressErrorHandlerMiddleware = void 0;
 exports.createExpressErrorHandler = createExpressErrorHandler;
 const Error_1 = require("../core/Error");
-const ErrorFactory_1 = require("../core/ErrorFactory");
-const Console_1 = require("../core/Console");
-const enums_1 = require("../enums");
+const zod_1 = require("zod");
+const class_validator_1 = require("class-validator");
 /**
  * Express.js global error handler middleware that integrates with the existing error handling system.
  *
  * This middleware catches all unhandled errors in Express routes, transforms them using the existing
- * CustomError classes, and returns standardized JSON responses.
+ * CustomError classes, and returns standardized JSON responses. It provides comprehensive error
+ * transformation, logging, and metadata extraction for debugging and monitoring purposes.
+ *
+ * ## Features
+ * - **Error Transformation**: Converts various error types (ZodError, ClassValidatorError, etc.) to standardized CustomError instances
+ * - **Request Metadata**: Extracts comprehensive request information for debugging context
+ * - **Trace ID Support**: Automatically extracts and assigns trace IDs for distributed tracing
+ * - **Configurable Logging**: Integrates with existing Console utility for structured error logging
+ * - **Security**: Optional request body inclusion with size limits to prevent sensitive data exposure
+ * - **Fallback Handling**: Graceful degradation when the error handler itself encounters issues
+ *
+ * ## Usage
+ * ```typescript
+ * import { ExpressErrorHandlerMiddleware } from './middleware/ExpressErrorHandler';
+ * import express from 'express';
+ *
+ * const app = express();
+ *
+ * // Create error handler with custom options
+ * const errorHandler = new ExpressErrorHandlerMiddleware({
+ *   serviceName: 'my-service',
+ *   traceIdHeader: 'x-trace-id',
+ *   includeRequestBody: true,
+ *   maxBodySize: 2048,
+ *   enableLogging: true
+ * });
+ *
+ * // Apply as global error handler
+ * app.use(errorHandler.getHandler());
+ * ```
+ *
+ * ## Error Response Format
+ * ```json
+ * {
+ *   "code": "VALIDATION_ERROR",
+ *   "serviceName": "my-service",
+ *   "message": "Invalid input data",
+ *   "timestamp": "2024-01-15T10:30:00.000Z",
+ *   "traceId": "abc123-def456",
+ *   "statusCode": 400
+ * }
+ * ```
+ *
+ * @class ExpressErrorHandlerMiddleware
+ * @since 1.0.0
  */
 class ExpressErrorHandlerMiddleware {
+    /**
+     * Creates a new ExpressErrorHandlerMiddleware instance with the provided configuration options.
+     *
+     * @param options - Configuration options for the error handler
+     * @param options.serviceName - Service name to include in error responses (defaults to process.env.SERVICE_NAME or 'unknown')
+     * @param options.traceIdHeader - Header name to extract trace ID from (defaults to 'x-trace-id')
+     * @param options.includeRequestBody - Whether to include request body in error context (defaults to false for security)
+     * @param options.maxBodySize - Maximum size of request body to include in bytes (defaults to 1024)
+     * @param options.enableLogging - Whether to enable error logging (defaults to true)
+     * @param options.logger - Custom logger instance (defaults to console)
+     *
+     * @example
+     * ```typescript
+     * // Basic usage with defaults
+     * const errorHandler = new ExpressErrorHandlerMiddleware();
+     *
+     * // Custom configuration
+     * const errorHandler = new ExpressErrorHandlerMiddleware({
+     *   serviceName: 'user-service',
+     *   traceIdHeader: 'x-request-id',
+     *   includeRequestBody: true,
+     *   maxBodySize: 2048,
+     *   enableLogging: true,
+     *   logger: customLogger
+     * });
+     * ```
+     *
+     * @since 1.0.0
+     */
     constructor(options = {}) {
         this.options = {
             serviceName: options.serviceName || process.env.SERVICE_NAME || 'unknown',
@@ -20,123 +92,275 @@ class ExpressErrorHandlerMiddleware {
             includeRequestBody: options.includeRequestBody || false,
             maxBodySize: options.maxBodySize || 1024,
             enableLogging: options.enableLogging !== false,
-            customErrorTransform: options.customErrorTransform || ((err) => err),
+            logger: options.logger || console,
         };
-        this.errorFactory = new ErrorFactory_1.ErrorFactory({
-            serviceName: this.options.serviceName,
-        });
     }
     /**
-     * Get the Express error handler function
+     * Returns the Express error handler function that can be used as middleware.
+     *
+     * This method creates and returns a function that conforms to Express's error handler signature.
+     * The returned function handles the complete error processing pipeline:
+     * 1. Transforms errors to standardized CustomError instances
+     * 2. Extracts and assigns request metadata for debugging context
+     * 3. Assigns trace IDs for distributed tracing
+     * 4. Logs errors using the configured logger
+     * 5. Sends standardized JSON error responses
+     *
+     * @returns {ExpressErrorHandler} Express error handler function
+     *
+     * @example
+     * ```typescript
+     * const errorHandler = new ExpressErrorHandlerMiddleware();
+     * app.use(errorHandler.getHandler());
+     *
+     * // Or use with specific routes
+     * app.use('/api', errorHandler.getHandler());
+     * ```
+     *
+     * @since 1.0.0
      */
     getHandler() {
         return (err, req, res, next) => {
             try {
-                // Apply custom error transformation if provided
-                const transformedError = this.options.customErrorTransform
-                    ? this.options.customErrorTransform(err, req)
-                    : err;
                 // Transform error to CustomError instance
-                const customError = this.transformToCustomError(transformedError, req);
+                const standardError = this.transformToStandardError(err, req);
                 // Extract request metadata for context
-                const requestMetadata = this.extractRequestMetadata(req);
+                const errorWithMetadata = this.assignMetadata(standardError, req);
                 // Update error context with Express request data
-                this.updateErrorContext(customError, requestMetadata);
+                const errorWithTraceId = this.assignTraceId(errorWithMetadata, req);
                 // Log error if logging is enabled
                 if (this.options.enableLogging) {
-                    this.logError(customError, requestMetadata);
+                    this.logError(errorWithTraceId);
                 }
                 // Send standardized error response
-                this.sendErrorResponse(res, customError);
+                this.sendErrorResponse(res, errorWithTraceId);
             }
             catch (handlerError) {
                 // Fallback error handling if the error handler itself fails
-                console.error('Error in ExpressErrorHandler:', handlerError);
+                this.options.logger.error('Error in ExpressErrorHandler:', handlerError);
                 this.sendFallbackErrorResponse(res, err);
             }
         };
     }
     /**
-     * Transform various error types to CustomError instances
+     * Transforms various error types to standardized CustomError instances.
+     *
+     * This method handles the conversion of different error types to the internal CustomError format:
+     * - CustomError instances are returned as-is
+     * - ZodError instances are converted to ValidationError
+     * - ClassValidatorError instances are converted to ValidationError
+     * - All other errors are wrapped as InternalError
+     *
+     * @private
+     * @param err - The error to transform
+     * @param req - Express request object for context
+     * @returns {CustomError} Standardized error instance
+     *
+     * @since 1.0.0
      */
-    transformToCustomError(err, req) {
-        // If already a CustomError, return as-is
+    transformToStandardError(err, req) {
+        // If already a CustomError return the same error
         if (err instanceof Error_1.CustomError) {
             return err;
         }
-        // Extract trace ID from request headers
-        const traceId = this.extractTraceId(req);
+        // handle zod error transformation to validation error
+        if (err instanceof zod_1.ZodError) {
+            return this.transformZodErrorToValidationError(err);
+        }
+        // handle class validator error
+        if (this.isClassValidatorError(err)) {
+            return this.transformClassValidatorErrorToValidationError(err);
+        }
         // Create error context with Express request data
         const context = {
             layer: 'router',
             className: 'ExpressErrorHandler',
-            methodName: 'transformToCustomError',
+            methodName: 'transformToStandardError',
             originalError: err,
         };
-        // Determine error category based on error type and properties
-        const category = this.determineErrorCategory(err);
         // Create appropriate CustomError using ErrorFactory
-        return this.errorFactory.createError(category, this.extractErrorCode(err), err.message || 'An error occurred', context);
+        return new Error_1.InternalError({ code: 'INTERNAL_SERVER_ERROR', context });
     }
     /**
-     * Determine error category based on error properties
+     * Checks if the provided error is a ClassValidatorError or array of ClassValidatorErrors.
+     *
+     * @private
+     * @param err - The error to check
+     * @returns {boolean} True if the error is a ClassValidatorError or array of ClassValidatorErrors
+     *
+     * @since 1.0.0
      */
-    determineErrorCategory(err) {
-        // Check for specific error types or properties
-        if (err.name === 'ValidationError' || err.message.includes('validation')) {
-            return enums_1.ErrorCategoryEnum.VALIDATION;
+    isClassValidatorError(err) {
+        if (Array.isArray(err) && err.length) {
+            return err.every((err) => err instanceof class_validator_1.ValidationError);
         }
-        if (err.name === 'UnauthorizedError' || err.message.includes('unauthorized')) {
-            return enums_1.ErrorCategoryEnum.AUTHENTICATION;
-        }
-        if (err.name === 'ForbiddenError' || err.message.includes('forbidden')) {
-            return enums_1.ErrorCategoryEnum.AUTHORIZATION;
-        }
-        if (err.name === 'NotFoundError' || err.message.includes('not found')) {
-            return enums_1.ErrorCategoryEnum.NOT_FOUND;
-        }
-        if (err.name === 'ConflictError' || err.message.includes('conflict')) {
-            return enums_1.ErrorCategoryEnum.CONFLICT;
-        }
-        if (err.name === 'DatabaseError' || err.message.includes('database')) {
-            return enums_1.ErrorCategoryEnum.DATABASE;
-        }
-        if (err.name === 'NetworkError' || err.message.includes('network')) {
-            return enums_1.ErrorCategoryEnum.NETWORK;
-        }
-        if (err.name === 'ExternalServiceError' || err.message.includes('external service')) {
-            return enums_1.ErrorCategoryEnum.EXTERNAL_SERVICE;
-        }
-        // Default to internal error for unknown types
-        return enums_1.ErrorCategoryEnum.INTERNAL;
+        return err instanceof class_validator_1.ValidationError;
     }
     /**
-     * Extract error code from error instance
+     * Transforms a ZodError to a ValidationError instance.
+     *
+     * Converts Zod validation errors to the standardized ValidationError format,
+     * preserving validation details and original error context.
+     *
+     * @private
+     * @param zodError - The ZodError to transform
+     * @returns {ValidationError} Transformed validation error
+     *
+     * @since 1.0.0
      */
-    extractErrorCode(err) {
-        // Try to extract code from error properties
-        if ('code' in err && typeof err.code === 'string') {
-            return err.code;
+    transformZodErrorToValidationError(zodError) {
+        let standardShapeError = this.transformZodErrorToStandardShape(zodError)[0];
+        if (!standardShapeError) {
+            this.options.logger.warn('zod error transforming issue, check error handler');
+            standardShapeError = { code: 'UNKNOWN_VALIDATION_ERROR' };
         }
-        if ('statusCode' in err && typeof err.statusCode === 'number') {
-            return `HTTP_${err.statusCode}`;
-        }
-        // Use error name as code
-        return err.name || 'UNKNOWN_ERROR';
+        const errorContext = { ...standardShapeError, originalError: zodError };
+        const errorStack = zodError.stack;
+        return new Error_1.ValidationError({
+            code: standardShapeError.code,
+            message: standardShapeError.message,
+            stack: errorStack,
+            context: errorContext,
+        });
     }
     /**
-     * Extract trace ID from request headers
+     * Transforms ClassValidatorError(s) to a ValidationError instance.
+     *
+     * Converts class-validator errors to the standardized ValidationError format,
+     * handling both single errors and arrays of errors.
+     *
+     * @private
+     * @param classValidatorError - The ClassValidatorError or array of ClassValidatorErrors to transform
+     * @returns {ValidationError} Transformed validation error
+     *
+     * @since 1.0.0
      */
-    extractTraceId(req) {
-        const traceId = req.get(this.options.traceIdHeader) ||
-            req.get('x-request-id') ||
-            req.get('x-correlation-id');
-        return traceId || undefined;
+    transformClassValidatorErrorToValidationError(classValidatorError) {
+        let standardShapeError = this.transformClassValidatorErrorsToStandardShape(classValidatorError)[0];
+        if (!standardShapeError) {
+            this.options.logger.warn('class validator error transforming issue, check error handler');
+            standardShapeError = { code: 'UNKNOWN_VALIDATION_ERROR' };
+        }
+        const errorContext = { ...standardShapeError };
+        return new Error_1.ValidationError({
+            code: standardShapeError.code,
+            message: standardShapeError.message,
+            context: errorContext,
+        });
     }
     /**
-     * Extract comprehensive request metadata
+     * Transforms ZodError issues to a standardized validation error shape.
+     *
+     * Converts Zod validation issues to a consistent format that can be used
+     * across different validation libraries.
+     *
+     * @private
+     * @param zodError - The ZodError to transform
+     * @param stopOnFirstError - Whether to stop processing after the first error (defaults to true)
+     * @returns {ValidationErrorStandardShape[]} Array of standardized validation error shapes
+     *
+     * @since 1.0.0
+     */
+    transformZodErrorToStandardShape(zodError, stopOnFirstError = true) {
+        let newErrorsShape = [];
+        if (zodError.issues && Array.isArray(zodError.issues))
+            for (const issue of zodError.issues) {
+                const code = issue.message;
+                const message = issue.message;
+                const constraint = issue.code;
+                const path = issue.path.join('.');
+                const value = issue.input;
+                const errorShape = {
+                    code,
+                    path,
+                    message,
+                    constraint,
+                    value,
+                    originalContext: issue,
+                };
+                newErrorsShape.push(errorShape);
+                if (stopOnFirstError)
+                    break;
+            }
+        return newErrorsShape;
+    }
+    /**
+     * Transforms a single ClassValidatorError to a standardized validation error shape.
+     *
+     * Converts class-validator error constraints to a consistent format.
+     *
+     * @private
+     * @param classValidatorError - The ClassValidatorError to transform
+     * @param stopOnFirstError - Whether to stop processing after the first error (defaults to true)
+     * @returns {ValidationErrorStandardShape[]} Array of standardized validation error shapes
+     *
+     * @since 1.0.0
+     */
+    transformClassValidatorErrorToStandardShape(classValidatorError, stopOnFirstError = true) {
+        var _a;
+        let newErrorsShape = [];
+        if (classValidatorError.constraints) {
+            for (const constraint of Object.keys(classValidatorError.constraints)) {
+                const err = {
+                    code: ((_a = classValidatorError === null || classValidatorError === void 0 ? void 0 : classValidatorError.constraints) === null || _a === void 0 ? void 0 : _a[constraint]) || 'UNKNOWN_CODE',
+                    path: classValidatorError.property,
+                    value: classValidatorError.value,
+                    constraint: constraint,
+                    originalContext: classValidatorError.contexts,
+                };
+                newErrorsShape.push(err);
+                if (stopOnFirstError)
+                    break;
+            }
+        }
+        return newErrorsShape;
+    }
+    /**
+     * Transforms ClassValidatorError(s) to standardized validation error shapes.
+     *
+     * Handles both single errors and arrays of errors, including nested children errors.
+     *
+     * @private
+     * @param classValidatorErrors - The ClassValidatorError or array of ClassValidatorErrors to transform
+     * @param stopOnFirstError - Whether to stop processing after the first error (defaults to true)
+     * @returns {ValidationErrorStandardShape[]} Array of standardized validation error shapes
+     *
+     * @since 1.0.0
+     */
+    transformClassValidatorErrorsToStandardShape(classValidatorErrors, stopOnFirstError = true) {
+        let newErrorsShape = [];
+        if (!Array.isArray(classValidatorErrors)) {
+            newErrorsShape.push(...this.transformClassValidatorErrorToStandardShape(classValidatorErrors, stopOnFirstError));
+            return newErrorsShape;
+        }
+        for (const classValidatorError of classValidatorErrors) {
+            if (classValidatorError.constraints && typeof classValidatorError.constraints === 'object') {
+                newErrorsShape.push(...this.transformClassValidatorErrorToStandardShape(classValidatorError, stopOnFirstError));
+                if (stopOnFirstError)
+                    break;
+            }
+            if (classValidatorError.children && classValidatorError.children.length > 0) {
+                newErrorsShape.push(...this.transformClassValidatorErrorsToStandardShape(classValidatorError.children, stopOnFirstError));
+                if (stopOnFirstError)
+                    break;
+            }
+        }
+        return newErrorsShape;
+    }
+    /**
+     * Extracts comprehensive request metadata for debugging and context purposes.
+     *
+     * Collects various request information including method, URL, headers, user agent,
+     * IP address, and optionally the request body (if enabled and within size limits).
+     *
+     * @private
+     * @param req - Express request object
+     * @returns {RequestMetadata} Extracted request metadata
+     *
+     * @since 1.0.0
      */
     extractRequestMetadata(req) {
+        var _a;
         const metadata = {
             method: req.method,
             url: req.url,
@@ -145,7 +369,7 @@ class ExpressErrorHandlerMiddleware {
             params: req.params,
             headers: req.headers,
             userAgent: req.get('user-agent') || 'unknown',
-            ip: req.ip || req.connection.remoteAddress || 'unknown',
+            ip: req.ip || ((_a = req.connection) === null || _a === void 0 ? void 0 : _a.remoteAddress) || 'unknown',
             originalUrl: req.originalUrl,
             baseUrl: req.baseUrl,
         };
@@ -163,44 +387,63 @@ class ExpressErrorHandlerMiddleware {
         return metadata;
     }
     /**
-     * Update error context with Express request metadata
+     * Assigns request metadata to the error context for enhanced debugging.
+     *
+     * @private
+     * @param error - The CustomError to assign metadata to
+     * @param req - Express request object
+     * @returns {CustomError} Error with updated metadata context
+     *
+     * @since 1.0.0
      */
-    updateErrorContext(error, metadata) {
-        const expressContext = {
-            layer: 'router',
-            className: 'ExpressErrorHandler',
-            methodName: 'updateErrorContext',
-            method: metadata.method,
-            url: metadata.url,
-            path: metadata.path,
-            query: metadata.query,
-            params: metadata.params,
-            headers: metadata.headers,
-            userAgent: metadata.userAgent,
-            ip: metadata.ip,
-            route: metadata.route,
-            originalUrl: metadata.originalUrl,
-            baseUrl: metadata.baseUrl,
-            body: metadata.body,
-        };
-        error.updateContext(expressContext);
-        // Set trace ID if available from headers
-        const traceId = metadata.headers[this.options.traceIdHeader.toLowerCase()] ||
-            metadata.headers['x-request-id'] ||
-            metadata.headers['x-correlation-id'];
-        if (traceId) {
-            error.setTraceId(traceId);
-        }
+    assignMetadata(error, req) {
+        const metadata = this.extractRequestMetadata(req);
+        error.updateContext({ ...error.context, metadata });
+        return error;
     }
     /**
-     * Log error using existing Console utility
+     * Extracts trace ID from request headers for distributed tracing.
+     *
+     * Looks for trace ID in multiple common header names:
+     * - The configured traceIdHeader (default: 'x-trace-id')
+     * - 'x-request-id' (common alternative)
+     * - 'x-correlation-id' (another common alternative)
+     *
+     * @private
+     * @param req - Express request object
+     * @returns {string | undefined} Extracted trace ID or undefined if not found
+     *
+     * @since 1.0.0
      */
-    logError(error, metadata) {
-        Console_1.Console.error(`Express Error Handler - ${metadata.method} ${metadata.path}`);
-        error.log({ logContext: true, filter: true });
+    extractTraceId(req) {
+        const traceId = req.get(this.options.traceIdHeader) || req.get('x-request-id') || req.get('x-correlation-id');
+        return traceId || undefined;
     }
     /**
-     * Send standardized error response
+     * Assigns trace ID to the error for distributed tracing support.
+     *
+     * @param error - The CustomError to assign trace ID to
+     * @param req - Express request object
+     * @returns {CustomError} Error with assigned trace ID
+     *
+     * @since 1.0.0
+     */
+    assignTraceId(error, req) {
+        const traceId = this.extractTraceId(req);
+        error.setTraceId(traceId || 'unknown-trace-id');
+        return error;
+    }
+    /**
+     * Sends a standardized error response to the client.
+     *
+     * Creates a consistent JSON response format that includes error code,
+     * service name, message, timestamp, trace ID, and HTTP status code.
+     *
+     * @private
+     * @param res - Express response object
+     * @param error - The CustomError to send as response
+     *
+     * @since 1.0.0
      */
     sendErrorResponse(res, error) {
         const response = {
@@ -208,13 +451,22 @@ class ExpressErrorHandlerMiddleware {
             serviceName: error.serviceName,
             message: error.message,
             timestamp: error.timestamp.toISOString(),
-            traceId: error.traceId || 'unknown',
+            traceId: error.traceId || 'unknown-trace-id',
             statusCode: error.statusCode,
         };
         res.status(error.statusCode).json(response);
     }
     /**
-     * Send fallback error response when error handler fails
+     * Sends a fallback error response when the error handler itself fails.
+     *
+     * This provides a safety net to ensure that even if the error processing
+     * pipeline encounters issues, a basic error response is still sent to the client.
+     *
+     * @private
+     * @param res - Express response object
+     * @param originalError - The original error that caused the handler failure
+     *
+     * @since 1.0.0
      */
     sendFallbackErrorResponse(res, originalError) {
         const response = {
@@ -227,17 +479,67 @@ class ExpressErrorHandlerMiddleware {
         };
         res.status(500).json(response);
     }
+    /**
+     * Logs the error using the existing Console utility with structured output.
+     *
+     * Uses the configured logger to output error details with context and filtering
+     * applied for consistent error logging across the application.
+     *
+     * @private
+     * @param error - The CustomError to log
+     *
+     * @since 1.0.0
+     */
+    logError(error) {
+        error.log({ logContext: true, filter: true });
+    }
 }
 exports.ExpressErrorHandlerMiddleware = ExpressErrorHandlerMiddleware;
 /**
- * Factory function to create Express error handler middleware
+ * Factory function to create Express error handler middleware.
+ *
+ * This is a convenience function that creates a new ExpressErrorHandlerMiddleware
+ * instance and returns its handler function in one step.
+ *
+ * @param options - Optional configuration options for the error handler
+ * @returns {ExpressErrorHandler} Express error handler function
+ *
+ * @example
+ * ```typescript
+ * import { createExpressErrorHandler } from './middleware/ExpressErrorHandler';
+ * import express from 'express';
+ *
+ * const app = express();
+ *
+ * // Create and use error handler
+ * app.use(createExpressErrorHandler({
+ *   serviceName: 'my-service',
+ *   includeRequestBody: true
+ * }));
+ * ```
+ *
+ * @since 1.0.0
  */
 function createExpressErrorHandler(options) {
     const middleware = new ExpressErrorHandlerMiddleware(options);
     return middleware.getHandler();
 }
 /**
- * Default Express error handler with standard configuration
+ * Default Express error handler with standard configuration.
+ *
+ * This is a pre-configured error handler instance that uses default settings.
+ * It's ready to use out-of-the-box for most applications.
+ *
+ * @example
+ * ```typescript
+ * import { expressErrorHandler } from './middleware/ExpressErrorHandler';
+ * import express from 'express';
+ *
+ * const app = express();
+ * app.use(expressErrorHandler);
+ * ```
+ *
+ * @since 1.0.0
  */
 exports.expressErrorHandler = createExpressErrorHandler();
 //# sourceMappingURL=ExpressErrorHandler.js.map

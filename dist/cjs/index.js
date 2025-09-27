@@ -13,10 +13,19 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ClassValidator = exports.ClassTransformer = void 0;
 __exportStar(require("./core"), exports);
 __exportStar(require("./decorators"), exports);
 __exportStar(require("./enums"), exports);
 __exportStar(require("./types"), exports);
 __exportStar(require("./middleware"), exports);
+__exportStar(require("./filters"), exports);
+var class_transformer_1 = require("class-transformer");
+Object.defineProperty(exports, "ClassTransformer", { enumerable: true, get: function () { return __importDefault(class_transformer_1).default; } });
+var class_validator_1 = require("class-validator");
+Object.defineProperty(exports, "ClassValidator", { enumerable: true, get: function () { return __importDefault(class_validator_1).default; } });
 //# sourceMappingURL=index.js.map

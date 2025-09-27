@@ -11,6 +11,7 @@ export var ErrorCategoryEnum;
     ErrorCategoryEnum["CONFIGURATION"] = "configuration";
     ErrorCategoryEnum["INTERNAL"] = "internal";
     ErrorCategoryEnum["BAD_CONFIG"] = "bad_config";
+    ErrorCategoryEnum["TRANSFORMATION"] = "transformation";
 })(ErrorCategoryEnum || (ErrorCategoryEnum = {}));
 export var ErrorLayerEnum;
 (function (ErrorLayerEnum) {
@@ -34,6 +35,7 @@ export var ErrorConstructorEnum;
     ErrorConstructorEnum["AuthorizationError"] = "AuthorizationError";
     ErrorConstructorEnum["AuthenticationError"] = "AuthenticationError";
     ErrorConstructorEnum["BadConfigError"] = "BadConfigError";
+    ErrorConstructorEnum["TransformationError"] = "TransformationError";
 })(ErrorConstructorEnum || (ErrorConstructorEnum = {}));
 export var NetworkErrorCodesEnum;
 (function (NetworkErrorCodesEnum) {
