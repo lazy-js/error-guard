@@ -1,0 +1,45 @@
+{
+    "name": "@lazy-js/error-handler",
+    "version": "1.0.0",
+    "description": "",
+    "main": "./dist/cjs/index.js",
+    "module": "./dist/esm/index.js",
+    "types": "./dist/types/index.d.ts",
+    "exports": {
+        ".": {
+            "require": "./dist/cjs/index.js",
+            "import": "./dist/esm/index.js",
+            "types": "./dist/types/index.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "dev": "npm run dev:esm && npm run dev:cjs",
+        "dev:esm": "tsc --watch --project tsconfig.json",
+        "dev:cjs": "tsc --watch --project tsconfig.cjs.json",
+        "start": "node dist/cjs/index.js",
+        "prepublishOnly": "npm run build",
+        "build": "npm run build:esm && npm run build:cjs",
+        "build:esm": "tsc --project tsconfig.json",
+        "build:cjs": "tsc --project tsconfig.cjs.json",
+        "test": "tsc --project tsconfig.test.json && vitest"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "devDependencies": {
+        "@nestjs/common": "^10.3.0",
+        "@types/express": "^4.17.23",
+        "@types/node": "^24.3.1",
+        "typescript": "^5.9.2",
+        "vitest": "^3.2.4"
+    },
+    "dependencies": {
+        "class-transformer": "^0.5.1",
+        "class-validator": "^0.14.2",
+        "zod": "^4.1.11"
+    }
+}
