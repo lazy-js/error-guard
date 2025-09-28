@@ -1,6 +1,6 @@
-import { CustomError, InternalError, ValidationError } from '../core/Error';
-import { ZodError } from 'zod';
-import { ValidationError as ClassValidatorError } from 'class-validator';
+import { CustomError, InternalError, ValidationError } from "../core/Error";
+import { ZodError } from "zod";
+import { ValidationError as ClassValidatorError } from "class-validator";
 /**
  * Express.js global error handler middleware that integrates with the existing error handling system.
  *
@@ -83,8 +83,8 @@ export class ExpressErrorHandlerMiddleware {
      */
     constructor(options = {}) {
         this.options = {
-            serviceName: options.serviceName || process.env.SERVICE_NAME || 'unknown',
-            traceIdHeader: options.traceIdHeader || 'x-trace-id',
+            serviceName: options.serviceName || process.env.SERVICE_NAME || "unknown",
+            traceIdHeader: options.traceIdHeader || "x-trace-id",
             includeRequestBody: options.includeRequestBody || false,
             maxBodySize: options.maxBodySize || 1024,
             enableLogging: options.enableLogging !== false,
@@ -133,7 +133,7 @@ export class ExpressErrorHandlerMiddleware {
             }
             catch (handlerError) {
                 // Fallback error handling if the error handler itself fails
-                this.options.logger.error('Error in ExpressErrorHandler:', handlerError);
+                this.options.logger.error("Error in ExpressErrorHandler:", handlerError);
                 this.sendFallbackErrorResponse(res, err);
             }
         };
@@ -169,13 +169,13 @@ export class ExpressErrorHandlerMiddleware {
         }
         // Create error context with Express request data
         const context = {
-            layer: 'router',
-            className: 'ExpressErrorHandler',
-            methodName: 'transformToStandardError',
+            layer: "router",
+            className: "ExpressErrorHandler",
+            methodName: "transformToStandardError",
             originalError: err,
         };
         // Create appropriate CustomError using ErrorFactory
-        return new InternalError({ code: 'INTERNAL_SERVER_ERROR', context });
+        return new InternalError({ code: "INTERNAL_SERVER_ERROR", context });
     }
     /**
      * Checks if the provided error is a ClassValidatorError or array of ClassValidatorErrors.
@@ -207,8 +207,8 @@ export class ExpressErrorHandlerMiddleware {
     transformZodErrorToValidationError(zodError) {
         let standardShapeError = this.transformZodErrorToStandardShape(zodError)[0];
         if (!standardShapeError) {
-            this.options.logger.warn('zod error transforming issue, check error handler');
-            standardShapeError = { code: 'UNKNOWN_VALIDATION_ERROR' };
+            this.options.logger.warn("zod error transforming issue, check error handler");
+            standardShapeError = { code: "UNKNOWN_VALIDATION_ERROR" };
         }
         const errorContext = { ...standardShapeError, originalError: zodError };
         const errorStack = zodError.stack;
@@ -234,8 +234,8 @@ export class ExpressErrorHandlerMiddleware {
     transformClassValidatorErrorToValidationError(classValidatorError) {
         let standardShapeError = this.transformClassValidatorErrorsToStandardShape(classValidatorError)[0];
         if (!standardShapeError) {
-            this.options.logger.warn('class validator error transforming issue, check error handler');
-            standardShapeError = { code: 'UNKNOWN_VALIDATION_ERROR' };
+            this.options.logger.warn("class validator error transforming issue, check error handler");
+            standardShapeError = { code: "UNKNOWN_VALIDATION_ERROR" };
         }
         const errorContext = { ...standardShapeError };
         return new ValidationError({
@@ -264,7 +264,7 @@ export class ExpressErrorHandlerMiddleware {
                 const code = issue.message;
                 const message = issue.message;
                 const constraint = issue.code;
-                const path = issue.path.join('.');
+                const path = issue.path.join(".");
                 const value = issue.input;
                 const errorShape = {
                     code,
@@ -298,7 +298,7 @@ export class ExpressErrorHandlerMiddleware {
         if (classValidatorError.constraints) {
             for (const constraint of Object.keys(classValidatorError.constraints)) {
                 const err = {
-                    code: ((_a = classValidatorError === null || classValidatorError === void 0 ? void 0 : classValidatorError.constraints) === null || _a === void 0 ? void 0 : _a[constraint]) || 'UNKNOWN_CODE',
+                    code: ((_a = classValidatorError === null || classValidatorError === void 0 ? void 0 : classValidatorError.constraints) === null || _a === void 0 ? void 0 : _a[constraint]) || "UNKNOWN_CODE",
                     path: classValidatorError.property,
                     value: classValidatorError.value,
                     constraint: constraint,
@@ -330,7 +330,7 @@ export class ExpressErrorHandlerMiddleware {
             return newErrorsShape;
         }
         for (const classValidatorError of classValidatorErrors) {
-            if (classValidatorError.constraints && typeof classValidatorError.constraints === 'object') {
+            if (classValidatorError.constraints && typeof classValidatorError.constraints === "object") {
                 newErrorsShape.push(...this.transformClassValidatorErrorToStandardShape(classValidatorError, stopOnFirstError));
                 if (stopOnFirstError)
                     break;
@@ -364,8 +364,8 @@ export class ExpressErrorHandlerMiddleware {
             query: req.query,
             params: req.params,
             headers: req.headers,
-            userAgent: req.get('user-agent') || 'unknown',
-            ip: req.ip || ((_a = req.connection) === null || _a === void 0 ? void 0 : _a.remoteAddress) || 'unknown',
+            userAgent: req.get("user-agent") || "unknown",
+            ip: req.ip || ((_a = req.connection) === null || _a === void 0 ? void 0 : _a.remoteAddress) || "unknown",
             originalUrl: req.originalUrl,
             baseUrl: req.baseUrl,
         };
@@ -412,7 +412,7 @@ export class ExpressErrorHandlerMiddleware {
      * @since 1.0.0
      */
     extractTraceId(req) {
-        const traceId = req.get(this.options.traceIdHeader) || req.get('x-request-id') || req.get('x-correlation-id');
+        const traceId = req.get(this.options.traceIdHeader) || req.get("x-request-id") || req.get("x-correlation-id");
         return traceId || undefined;
     }
     /**
@@ -426,7 +426,7 @@ export class ExpressErrorHandlerMiddleware {
      */
     assignTraceId(error, req) {
         const traceId = this.extractTraceId(req);
-        error.setTraceId(traceId || 'unknown-trace-id');
+        error.setTraceId(traceId || "unknown-trace-id");
         return error;
     }
     /**
@@ -447,10 +447,10 @@ export class ExpressErrorHandlerMiddleware {
             serviceName: error.serviceName,
             message: error.message,
             timestamp: error.timestamp.toISOString(),
-            traceId: error.traceId || 'unknown-trace-id',
+            traceId: error.traceId || "unknown-trace-id",
             statusCode: error.statusCode,
         };
-        res.status(error.statusCode).json(response);
+        res.status(error.statusCode).json({ success: false, error: response });
     }
     /**
      * Sends a fallback error response when the error handler itself fails.
@@ -466,14 +466,14 @@ export class ExpressErrorHandlerMiddleware {
      */
     sendFallbackErrorResponse(res, originalError) {
         const response = {
-            code: 'ERROR_HANDLER_FAILED',
+            code: "ERROR_HANDLER_FAILED",
             serviceName: this.options.serviceName,
-            message: 'An error occurred while processing the request',
+            message: "An error occurred while processing the request",
             timestamp: new Date().toISOString(),
-            traceId: 'unknown',
+            traceId: "unknown",
             statusCode: 500,
         };
-        res.status(500).json(response);
+        res.status(500).json({ success: false, error: response });
     }
     /**
      * Logs the error using the existing Console utility with structured output.

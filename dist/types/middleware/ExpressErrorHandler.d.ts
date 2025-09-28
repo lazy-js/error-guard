@@ -1,6 +1,6 @@
-import { Request } from 'express';
-import { CustomError } from '../core/Error';
-import { ExpressErrorHandler, ExpressErrorHandlerOptions } from '../types/express';
+import { Request } from "express";
+import { CustomError } from "../core/Error";
+import { ExpressErrorHandler, ExpressErrorHandlerOptions } from "../types/express";
 /**
  * Express.js global error handler middleware that integrates with the existing error handling system.
  *
