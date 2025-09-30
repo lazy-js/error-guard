@@ -128,24 +128,27 @@ export class CustomError extends Error {
             Console.warning('No context');
         }
         Separator.doubleLine(' > End of Error < ', { color: 'error' });
+        return this;
     }
     /**
      * Updates the error timestamp to a specific date.
      *
      * @param timestamp - The new timestamp to set
-     *
+     * @returns this
      * @since 1.0.0
      */
     updateTimestamp(timestamp) {
         this.timestamp = timestamp;
+        return this;
     }
     /**
      * Updates the error timestamp to the current date and time.
-     *
+     * @returns this
      * @since 1.0.0
      */
     updateTimestampToNow() {
         this.timestamp = new Date();
+        return this;
     }
     /**
      * Updates the error context with new information.
@@ -155,7 +158,7 @@ export class CustomError extends Error {
      * the current stack trace.
      *
      * @param context - New context data to merge with existing context
-     *
+     * @returns this
      * @example
      * ```typescript
      * error.updateContext({
@@ -174,26 +177,29 @@ export class CustomError extends Error {
             this.stack = context.originalError.stack;
         }
         this.context = { ...this.context, ...context };
+        return this;
     }
     /**
      * Sets the error layer in the context.
      *
      * @param layer - The layer where the error occurred (service, controller, etc.)
-     *
+     * @returns this
      * @since 1.0.0
      */
     setLayer(layer) {
         this.context = { ...this.context, layer };
+        return this;
     }
     /**
      * Sets the trace ID for distributed tracing.
      *
      * @param traceId - The trace ID to associate with this error
-     *
+     * @returns this
      * @since 1.0.0
      */
     setTraceId(traceId) {
         this.traceId = traceId;
+        return this;
     }
     /**
      * Converts the error to a JSON-serializable object.

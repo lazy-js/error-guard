@@ -166,7 +166,7 @@ export class CustomError extends Error implements IError {
      *
      * @since 1.0.0
      */
-    log({ logContext, filter }: { logContext?: boolean; filter?: boolean } = { filter: true, logContext: true }): void {
+    log({ logContext, filter }: { logContext?: boolean; filter?: boolean } = { filter: true, logContext: true }): this {
         const keywordsFilter = ['node_modules', 'node:internal'];
         const callStack = filter
             ? StackHelper.getAndFilterCallStack(this.stack || '', keywordsFilter)
@@ -184,26 +184,29 @@ export class CustomError extends Error implements IError {
             Console.warning('No context');
         }
         Separator.doubleLine(' > End of Error < ', { color: 'error' });
+        return this;
     }
 
     /**
      * Updates the error timestamp to a specific date.
      *
      * @param timestamp - The new timestamp to set
-     *
+     * @returns this
      * @since 1.0.0
      */
-    updateTimestamp(timestamp: Date): void {
+    updateTimestamp(timestamp: Date): this {
         this.timestamp = timestamp;
+        return this;
     }
 
     /**
      * Updates the error timestamp to the current date and time.
-     *
+     * @returns this
      * @since 1.0.0
      */
-    updateTimestampToNow(): void {
+    updateTimestampToNow(): this {
         this.timestamp = new Date();
+        return this;
     }
 
     /**
@@ -214,7 +217,7 @@ export class CustomError extends Error implements IError {
      * the current stack trace.
      *
      * @param context - New context data to merge with existing context
-     *
+     * @returns this
      * @example
      * ```typescript
      * error.updateContext({
@@ -227,34 +230,38 @@ export class CustomError extends Error implements IError {
      *
      * @since 1.0.0
      */
-    updateContext(context: ErrorContextBase): void {
+    updateContext(context: ErrorContextBase): this {
         this.updateTimestampToNow();
         if (context.originalError && context.originalError.stack) {
             this.stack = context.originalError.stack;
         }
         this.context = { ...this.context, ...context };
+
+        return this;
     }
 
     /**
      * Sets the error layer in the context.
      *
      * @param layer - The layer where the error occurred (service, controller, etc.)
-     *
+     * @returns this
      * @since 1.0.0
      */
-    setLayer(layer: ErrorLayerEnum): void {
+    setLayer(layer: ErrorLayerEnum): this {
         this.context = { ...this.context, layer };
+        return this;
     }
 
     /**
      * Sets the trace ID for distributed tracing.
      *
      * @param traceId - The trace ID to associate with this error
-     *
+     * @returns this
      * @since 1.0.0
      */
-    setTraceId(traceId: string) {
+    setTraceId(traceId: string): this {
         this.traceId = traceId;
+        return this;
     }
 
     /**

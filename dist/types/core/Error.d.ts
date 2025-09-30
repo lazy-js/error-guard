@@ -116,21 +116,21 @@ export declare class CustomError extends Error implements IError {
     log({ logContext, filter }?: {
         logContext?: boolean;
         filter?: boolean;
-    }): void;
+    }): this;
     /**
      * Updates the error timestamp to a specific date.
      *
      * @param timestamp - The new timestamp to set
-     *
+     * @returns this
      * @since 1.0.0
      */
-    updateTimestamp(timestamp: Date): void;
+    updateTimestamp(timestamp: Date): this;
     /**
      * Updates the error timestamp to the current date and time.
-     *
+     * @returns this
      * @since 1.0.0
      */
-    updateTimestampToNow(): void;
+    updateTimestampToNow(): this;
     /**
      * Updates the error context with new information.
      *
@@ -139,7 +139,7 @@ export declare class CustomError extends Error implements IError {
      * the current stack trace.
      *
      * @param context - New context data to merge with existing context
-     *
+     * @returns this
      * @example
      * ```typescript
      * error.updateContext({
@@ -152,23 +152,23 @@ export declare class CustomError extends Error implements IError {
      *
      * @since 1.0.0
      */
-    updateContext(context: ErrorContextBase): void;
+    updateContext(context: ErrorContextBase): this;
     /**
      * Sets the error layer in the context.
      *
      * @param layer - The layer where the error occurred (service, controller, etc.)
-     *
+     * @returns this
      * @since 1.0.0
      */
-    setLayer(layer: ErrorLayerEnum): void;
+    setLayer(layer: ErrorLayerEnum): this;
     /**
      * Sets the trace ID for distributed tracing.
      *
      * @param traceId - The trace ID to associate with this error
-     *
+     * @returns this
      * @since 1.0.0
      */
-    setTraceId(traceId: string): void;
+    setTraceId(traceId: string): this;
     /**
      * Converts the error to a JSON-serializable object.
      *
